@@ -79,7 +79,7 @@ public class CarbonHiveRecordReader extends CarbonRecordReader<ArrayWritable>
     List<TableBlockInfo> tableBlockInfoList = CarbonHiveInputSplit.createBlocks(splitList);
     queryModel.setTableBlockInfos(tableBlockInfoList);
     readSupport.initialize(queryModel.getProjectionColumns(),
-        queryModel.getAbsoluteTableIdentifier());
+                           queryModel.getAbsoluteTableIdentifier());
     try {
       carbonIterator = new ChunkRowIterator(queryExecutor.execute(queryModel));
     } catch (QueryExecutionException e) {
@@ -87,13 +87,14 @@ public class CarbonHiveRecordReader extends CarbonRecordReader<ArrayWritable>
     }
     if (valueObj == null) {
       valueObj = new ArrayWritable(Writable.class,
-          new Writable[queryModel.getProjectionColumns().length]);
+                                   new Writable[queryModel.getProjectionColumns().length]);
     }
 
     final TypeInfo rowTypeInfo;
     final List<String> columnNames;
     List<TypeInfo> columnTypes;
     // Get column names and sort order
+    final String colIds = conf.get("hive.io.file.readcolumn.ids");
     final String columnNameProperty = conf.get("hive.io.file.readcolumn.names");
     final String columnTypeProperty = conf.get(serdeConstants.LIST_COLUMN_TYPES);
 
@@ -107,9 +108,15 @@ public class CarbonHiveRecordReader extends CarbonRecordReader<ArrayWritable>
     } else {
       columnTypes = TypeInfoUtils.getTypeInfosFromTypeString(columnTypeProperty);
     }
-    columnTypes = columnTypes.subList(0, columnNames.size());
+
+    String[] arraySelectedColId = colIds.split(",");
+    List<TypeInfo> reqColTypes = new ArrayList<TypeInfo>();
+
+    for (String anArrayColId : arraySelectedColId) {
+      reqColTypes.add(columnTypes.get(Integer.parseInt(anArrayColId)));
+    }
     // Create row related objects
-    rowTypeInfo = TypeInfoFactory.getStructTypeInfo(columnNames, columnTypes);
+    rowTypeInfo = TypeInfoFactory.getStructTypeInfo(columnNames, reqColTypes);
     this.objInspector = new CarbonObjectInspector((StructTypeInfo) rowTypeInfo);
   }
 

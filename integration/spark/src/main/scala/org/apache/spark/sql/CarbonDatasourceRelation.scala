@@ -240,8 +240,6 @@ case class CarbonRelation(
         .map(x => AttributeReference(x.getColName, CarbonMetastoreTypes.toDataType(
           metaData.carbonTable.getMeasureByName(factTable, x.getColName).getDataType.toString
               .toLowerCase match {
-            case "int" => "long"
-            case "short" => "long"
             case "float" => "double"
             case "decimal" => "decimal(" + x.getPrecision + "," + x.getScale + ")"
             case others => others
@@ -253,7 +251,7 @@ case class CarbonRelation(
     val columns = tableMeta.carbonTable.getCreateOrderColumn(tableMeta.carbonTable.getFactTableName)
         .asScala
     columns.filter(!_.isInvisible).map { column =>
-      if (column.isDimesion()) {
+      if (column.isDimension()) {
         val output: DataType = column.getDataType.toString.toLowerCase match {
           case "array" =>
             CarbonMetastoreTypes.toDataType(s"array<${getArrayChildren(column.getColName)}>")
@@ -270,8 +268,6 @@ case class CarbonRelation(
         AttributeReference(column.getColName, CarbonMetastoreTypes.toDataType(
           column.getDataType.toString
             .toLowerCase match {
-            case "int" => "long"
-            case "short" => "long"
             case "float" => "double"
             case "decimal" => "decimal(" + column.getColumnSchema.getPrecision + "," + column
               .getColumnSchema.getScale + ")"

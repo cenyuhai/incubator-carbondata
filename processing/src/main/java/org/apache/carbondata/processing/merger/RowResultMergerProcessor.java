@@ -34,6 +34,8 @@ import org.apache.carbondata.core.scan.wrappers.ByteArrayWrapper;
 import org.apache.carbondata.core.util.ByteUtil;
 import org.apache.carbondata.processing.merger.exeception.SliceMergerException;
 import org.apache.carbondata.processing.model.CarbonLoadModel;
+import org.apache.carbondata.processing.newflow.row.CarbonRow;
+import org.apache.carbondata.processing.newflow.row.WriteStepRowUtil;
 import org.apache.carbondata.processing.store.CarbonFactDataHandlerColumnar;
 import org.apache.carbondata.processing.store.CarbonFactDataHandlerModel;
 import org.apache.carbondata.processing.store.CarbonFactHandler;
@@ -50,8 +52,6 @@ public class RowResultMergerProcessor extends AbstractResultProcessor {
    * record holder heap
    */
   private AbstractQueue<RawResultIterator> recordHolderHeap;
-
-  private TupleConversionAdapter tupleConvertor;
 
   private static final LogService LOGGER =
       LogServiceFactory.getLogService(RowResultMergerProcessor.class.getName());
@@ -72,7 +72,6 @@ public class RowResultMergerProcessor extends AbstractResultProcessor {
         carbonFactDataHandlerModel);
     carbonFactDataHandlerModel.setCompactionFlow(true);
     dataHandler = new CarbonFactDataHandlerColumnar(carbonFactDataHandlerModel);
-    tupleConvertor = new TupleConversionAdapter(segProp);
   }
 
   private void initRecordHolderHeap(List<RawResultIterator> rawResultIteratorList) {
@@ -169,11 +168,9 @@ public class RowResultMergerProcessor extends AbstractResultProcessor {
    * @throws SliceMergerException
    */
   private void addRow(Object[] carbonTuple) throws SliceMergerException {
-    Object[] rowInWritableFormat;
-
-    rowInWritableFormat = tupleConvertor.getObjectArray(carbonTuple);
+    CarbonRow row = WriteStepRowUtil.fromMergerRow(carbonTuple, segprop);
     try {
-      this.dataHandler.addDataToStore(rowInWritableFormat);
+      this.dataHandler.addDataToStore(row);
     } catch (CarbonDataWriterException e) {
       throw new SliceMergerException("Problem in merging the slice", e);
     }
@@ -183,6 +180,19 @@ public class RowResultMergerProcessor extends AbstractResultProcessor {
    * Comparator class for comparing 2 raw row result.
    */
   private class CarbonMdkeyComparator implements Comparator<RawResultIterator> {
+    int[] columnValueSizes = segprop.getEachDimColumnValueSize();
+    public CarbonMdkeyComparator() {
+      initSortColumns();
+    }
+
+    private void initSortColumns() {
+      int numberOfSortColumns = segprop.getNumberOfSortColumns();
+      if (numberOfSortColumns != columnValueSizes.length) {
+        int[] sortColumnValueSizes = new int[numberOfSortColumns];
+        System.arraycopy(columnValueSizes, 0, sortColumnValueSizes, 0, numberOfSortColumns);
+        this.columnValueSizes = sortColumnValueSizes;
+      }
+    }
 
     @Override public int compare(RawResultIterator o1, RawResultIterator o2) {
 
@@ -200,7 +210,6 @@ public class RowResultMergerProcessor extends AbstractResultProcessor {
       ByteArrayWrapper key1 = (ByteArrayWrapper) row1[0];
       ByteArrayWrapper key2 = (ByteArrayWrapper) row2[0];
       int compareResult = 0;
-      int[] columnValueSizes = segprop.getEachDimColumnValueSize();
       int dictionaryKeyOffset = 0;
       byte[] dimCols1 = key1.getDictionaryKey();
       byte[] dimCols2 = key2.getDictionaryKey();

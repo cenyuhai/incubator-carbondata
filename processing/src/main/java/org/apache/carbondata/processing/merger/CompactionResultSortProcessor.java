@@ -24,6 +24,7 @@ import org.apache.carbondata.common.logging.LogService;
 import org.apache.carbondata.common.logging.LogServiceFactory;
 import org.apache.carbondata.core.constants.CarbonCommonConstants;
 import org.apache.carbondata.core.datastore.block.SegmentProperties;
+import org.apache.carbondata.core.metadata.datatype.DataType;
 import org.apache.carbondata.core.metadata.encoder.Encoding;
 import org.apache.carbondata.core.metadata.schema.table.CarbonTable;
 import org.apache.carbondata.core.metadata.schema.table.column.CarbonDimension;
@@ -42,6 +43,8 @@ import org.apache.carbondata.processing.store.CarbonFactHandlerFactory;
 import org.apache.carbondata.processing.store.SingleThreadFinalSortFilesMerger;
 import org.apache.carbondata.processing.store.writer.exception.CarbonDataWriterException;
 import org.apache.carbondata.processing.util.CarbonDataProcessorUtil;
+
+import org.apache.spark.sql.types.Decimal;
 
 /**
  * This class will process the query result and convert the data
@@ -89,7 +92,7 @@ public class CompactionResultSortProcessor extends AbstractResultProcessor {
   /**
    * agg type defined for measures
    */
-  private char[] aggType;
+  private DataType[] dataTypes;
   /**
    * segment id
    */
@@ -118,6 +121,10 @@ public class CompactionResultSortProcessor extends AbstractResultProcessor {
    * whether the allocated tasks has any record
    */
   private boolean isRecordFound;
+  /**
+   * intermediate sort merger
+   */
+  private SortIntermediateFileMerger intermediateFileMerger;
 
   /**
    * @param carbonLoadModel
@@ -184,8 +191,7 @@ public class CompactionResultSortProcessor extends AbstractResultProcessor {
    *
    * @param resultIteratorList
    */
-  private void processResult(List<RawResultIterator> resultIteratorList)
-      throws Exception {
+  private void processResult(List<RawResultIterator> resultIteratorList) throws Exception {
     for (RawResultIterator resultIterator : resultIteratorList) {
       while (resultIterator.hasNext()) {
         addRowForSorting(prepareRowObjectForSorting(resultIterator.next()));
@@ -235,7 +241,7 @@ public class CompactionResultSortProcessor extends AbstractResultProcessor {
     int measureIndexInRow = 1;
     for (int i = 0; i < measureCount; i++) {
       preparedRow[dimensionColumnCount + i] =
-          getConvertedMeasureValue(row[measureIndexInRow++], aggType[i]);
+          getConvertedMeasureValue(row[measureIndexInRow++], dataTypes[i]);
     }
     return preparedRow;
   }
@@ -244,13 +250,15 @@ public class CompactionResultSortProcessor extends AbstractResultProcessor {
    * This method will convert the spark decimal to java big decimal type
    *
    * @param value
-   * @param aggType
+   * @param type
    * @return
    */
-  private Object getConvertedMeasureValue(Object value, char aggType) {
-    switch (aggType) {
-      case CarbonCommonConstants.BIG_DECIMAL_MEASURE:
-        value = ((org.apache.spark.sql.types.Decimal) value).toJavaBigDecimal();
+  private Object getConvertedMeasureValue(Object value, DataType type) {
+    switch (type) {
+      case DECIMAL:
+        if (value != null) {
+          value = ((Decimal) value).toJavaBigDecimal();
+        }
         return value;
       default:
         return value;
@@ -262,15 +270,11 @@ public class CompactionResultSortProcessor extends AbstractResultProcessor {
    */
   private void readAndLoadDataFromSortTempFiles() throws Exception {
     try {
+      intermediateFileMerger.finish();
       finalMerger.startFinalMerge();
       while (finalMerger.hasNext()) {
-        Object[] rowRead = finalMerger.next();
-        CarbonRow row = new CarbonRow(rowRead);
-        // convert the row from surrogate key to MDKey
-        Object[] outputRow = CarbonDataProcessorUtil
-            .convertToMDKeyAndFillRow(row, segmentProperties, measureCount, noDictionaryCount,
-                segmentProperties.getComplexDimensions().size());
-        dataHandler.addDataToStore(outputRow);
+        Object[] row = finalMerger.next();
+        dataHandler.addDataToStore(new CarbonRow(row));
       }
       dataHandler.finish();
     } catch (CarbonDataWriterException e) {
@@ -298,7 +302,6 @@ public class CompactionResultSortProcessor extends AbstractResultProcessor {
    */
   private void addRowForSorting(Object[] row) throws Exception {
     try {
-      // prepare row array using RemoveDictionaryUtil class
       sortDataRows.addRow(row);
     } catch (CarbonSortKeyAndGroupByException e) {
       LOGGER.error(e);
@@ -324,7 +327,7 @@ public class CompactionResultSortProcessor extends AbstractResultProcessor {
     }
     dimensionColumnCount = dimensions.size();
     SortParameters parameters = createSortParameters();
-    SortIntermediateFileMerger intermediateFileMerger = new SortIntermediateFileMerger(parameters);
+    intermediateFileMerger = new SortIntermediateFileMerger(parameters);
     // TODO: Now it is only supported onheap merge, but we can have unsafe merge
     // as well by using UnsafeSortDataRows.
     this.sortDataRows = new SortDataRows(parameters, intermediateFileMerger);
@@ -343,12 +346,11 @@ public class CompactionResultSortProcessor extends AbstractResultProcessor {
    * @return
    */
   private SortParameters createSortParameters() {
-    SortParameters parameters = SortParameters
-        .createSortParameters(carbonLoadModel.getDatabaseName(), tableName, dimensionColumnCount,
-            segmentProperties.getComplexDimensions().size(), measureCount, noDictionaryCount,
-            carbonLoadModel.getPartitionId(), segmentId, carbonLoadModel.getTaskNo(),
-            noDictionaryColMapping);
-    return parameters;
+    return SortParameters
+        .createSortParameters(carbonTable, carbonLoadModel.getDatabaseName(), tableName,
+            dimensionColumnCount, segmentProperties.getComplexDimensions().size(), measureCount,
+            noDictionaryCount, carbonLoadModel.getPartitionId(), segmentId,
+            carbonLoadModel.getTaskNo(), noDictionaryColMapping, true);
   }
 
   /**
@@ -358,10 +360,18 @@ public class CompactionResultSortProcessor extends AbstractResultProcessor {
   private void initializeFinalThreadMergerForMergeSort() {
     String sortTempFileLocation = tempStoreLocation + CarbonCommonConstants.FILE_SEPARATOR
         + CarbonCommonConstants.SORT_TEMP_FILE_LOCATION;
+    boolean[] noDictionarySortColumnMapping = null;
+    if (noDictionaryColMapping.length == this.segmentProperties.getNumberOfSortColumns()) {
+      noDictionarySortColumnMapping = noDictionaryColMapping;
+    } else {
+      noDictionarySortColumnMapping = new boolean[this.segmentProperties.getNumberOfSortColumns()];
+      System.arraycopy(noDictionaryColMapping, 0,
+          noDictionarySortColumnMapping, 0, noDictionarySortColumnMapping.length);
+    }
     finalMerger =
         new SingleThreadFinalSortFilesMerger(sortTempFileLocation, tableName, dimensionColumnCount,
             segmentProperties.getComplexDimensions().size(), measureCount, noDictionaryCount,
-            aggType, noDictionaryColMapping);
+            dataTypes, noDictionaryColMapping, noDictionarySortColumnMapping);
   }
 
   /**
@@ -389,13 +399,13 @@ public class CompactionResultSortProcessor extends AbstractResultProcessor {
   private void initTempStoreLocation() {
     tempStoreLocation = CarbonDataProcessorUtil
         .getLocalDataFolderLocation(carbonLoadModel.getDatabaseName(), tableName,
-            carbonLoadModel.getTaskNo(), carbonLoadModel.getPartitionId(), segmentId, false);
+            carbonLoadModel.getTaskNo(), carbonLoadModel.getPartitionId(), segmentId, true);
   }
 
   /**
    * initialise aggregation type for measures for their storage format
    */
   private void initAggType() {
-    aggType = CarbonDataProcessorUtil.initAggType(carbonTable, tableName, measureCount);
+    dataTypes = CarbonDataProcessorUtil.initDataType(carbonTable, tableName, measureCount);
   }
 }

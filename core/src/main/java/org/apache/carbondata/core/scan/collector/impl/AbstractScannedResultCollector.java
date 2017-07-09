@@ -91,12 +91,14 @@ public abstract class AbstractScannedResultCollector implements ScannedResultCol
     }
   }
 
-  private Object getMeasureData(MeasureColumnDataChunk dataChunk, int index,
+  protected Object getMeasureData(MeasureColumnDataChunk dataChunk, int index,
       CarbonMeasure carbonMeasure) {
     if (!dataChunk.getNullValueIndexHolder().getBitSet().get(index)) {
       switch (carbonMeasure.getDataType()) {
         case SHORT:
+          return (short)dataChunk.getMeasureDataHolder().getReadableLongValueByIndex(index);
         case INT:
+          return (int)dataChunk.getMeasureDataHolder().getReadableLongValueByIndex(index);
         case LONG:
           return dataChunk.getMeasureDataHolder().getReadableLongValueByIndex(index);
         case DECIMAL:
@@ -107,7 +109,7 @@ public abstract class AbstractScannedResultCollector implements ScannedResultCol
                 bigDecimalMsrValue.setScale(carbonMeasure.getScale(), RoundingMode.HALF_UP);
           }
           return org.apache.spark.sql.types.Decimal
-              .apply(bigDecimalMsrValue, carbonMeasure.getPrecision(), carbonMeasure.getScale());
+              .apply(bigDecimalMsrValue);
         default:
           return dataChunk.getMeasureDataHolder().getReadableDoubleValueByIndex(index);
       }

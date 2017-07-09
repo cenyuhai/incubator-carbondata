@@ -40,7 +40,7 @@ followed by :
 
 ### Procedure
 
-1. [Build the CarbonData](https://github.com/apache/incubator-carbondata/blob/master/build/README.md) project and get the assembly jar from `./assembly/target/scala-2.1x/carbondata_xxx.jar`. 
+1. [Build the CarbonData](https://github.com/apache/carbondata/blob/master/build/README.md) project and get the assembly jar from `./assembly/target/scala-2.1x/carbondata_xxx.jar`. 
 
 2. Copy `./assembly/target/scala-2.1x/carbondata_xxx.jar` to `$SPARK_HOME/carbonlib` folder.
 
@@ -54,24 +54,24 @@ followed by :
     
 6. In Spark node[master], configure the properties mentioned in the following table in `$SPARK_HOME/conf/spark-defaults.conf` file.
 
-   | Property | Value | Description |
-   |---------------------------------|-----------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
-   | spark.driver.extraJavaOptions | `-Dcarbon.properties.filepath=$SPARK_HOME/conf/carbon.properties` | A string of extra JVM options to pass to the driver. For instance, GC settings or other logging. |
-   | spark.executor.extraJavaOptions | `-Dcarbon.properties.filepath=$SPARK_HOME/conf/carbon.properties` | A string of extra JVM options to pass to executors. For instance, GC settings or other logging. **NOTE**: You can enter multiple values separated by space. |
+| Property | Value | Description |
+|---------------------------------|-----------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+| spark.driver.extraJavaOptions | `-Dcarbon.properties.filepath = $SPARK_HOME/conf/carbon.properties` | A string of extra JVM options to pass to the driver. For instance, GC settings or other logging. |
+| spark.executor.extraJavaOptions | `-Dcarbon.properties.filepath = $SPARK_HOME/conf/carbon.properties` | A string of extra JVM options to pass to executors. For instance, GC settings or other logging. **NOTE**: You can enter multiple values separated by space. |
 
 7. Add the following properties in `$SPARK_HOME/conf/carbon.properties` file:
 
-   | Property             | Required | Description                                                                            | Example                             | Remark  |
-   |----------------------|----------|----------------------------------------------------------------------------------------|-------------------------------------|---------|
-   | carbon.storelocation | NO       | Location where data CarbonData will create the store and write the data in its own format. | hdfs://HOSTNAME:PORT/Opt/CarbonStore      | Propose to set HDFS directory |
+| Property             | Required | Description                                                                            | Example                             | Remark  |
+|----------------------|----------|----------------------------------------------------------------------------------------|-------------------------------------|---------|
+| carbon.storelocation | NO       | Location where data CarbonData will create the store and write the data in its own format. | hdfs://HOSTNAME:PORT/Opt/CarbonStore      | Propose to set HDFS directory |
 
 
 8. Verify the installation. For example:
 
-   ```
-   ./spark-shell --master spark://HOSTNAME:PORT --total-executor-cores 2
-   --executor-memory 2G
-   ```
+```
+./spark-shell --master spark://HOSTNAME:PORT --total-executor-cores 2
+--executor-memory 2G
+```
 
 **NOTE**: Make sure you have permissions for CarbonData JARs and files through which driver and executor will start.
 
@@ -90,7 +90,7 @@ To get started with CarbonData : [Quick Start](quick-start-guide.md), [DDL Opera
 
    The following steps are only for Driver Nodes. (Driver nodes are the one which starts the spark context.)
 
-1. [Build the CarbonData](https://github.com/apache/incubator-carbondata/blob/master/build/README.md) project and get the assembly jar from `./assembly/target/scala-2.1x/carbondata_xxx.jar` and copy to `$SPARK_HOME/carbonlib` folder.
+1. [Build the CarbonData](https://github.com/apache/carbondata/blob/master/build/README.md) project and get the assembly jar from `./assembly/target/scala-2.1x/carbondata_xxx.jar` and copy to `$SPARK_HOME/carbonlib` folder.
 
     **NOTE**: Create the carbonlib folder if it does not exists inside `$SPARK_HOME` path.
 
@@ -98,37 +98,37 @@ To get started with CarbonData : [Quick Start](quick-start-guide.md), [DDL Opera
 
 3. Create `tar,gz` file of carbonlib folder and move it inside the carbonlib folder.
 
-    ```
-	cd $SPARK_HOME
-	tar -zcvf carbondata.tar.gz carbonlib/
-	mv carbondata.tar.gz carbonlib/
-    ```
+```
+cd $SPARK_HOME
+tar -zcvf carbondata.tar.gz carbonlib/
+mv carbondata.tar.gz carbonlib/
+```
 
 4. Configure the properties mentioned in the following table in `$SPARK_HOME/conf/spark-defaults.conf` file.
 
-   | Property | Description | Value |
-   |---------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
-   | spark.master | Set this value to run the Spark in yarn cluster mode. | Set yarn-client to run the Spark in yarn cluster mode. |
-   | spark.yarn.dist.files | Comma-separated list of files to be placed in the working directory of each executor. |`$SPARK_HOME/conf/carbon.properties` |
-   | spark.yarn.dist.archives | Comma-separated list of archives to be extracted into the working directory of each executor. |`$SPARK_HOME/carbonlib/carbondata.tar.gz` |
-   | spark.executor.extraJavaOptions | A string of extra JVM options to pass to executors. For instance  **NOTE**: You can enter multiple values separated by space. |`-Dcarbon.properties.filepath=carbon.properties` |
-   | spark.executor.extraClassPath | Extra classpath entries to prepend to the classpath of executors. **NOTE**: If SPARK_CLASSPATH is defined in spark-env.sh, then comment it and append the values in below parameter spark.driver.extraClassPath |`carbondata.tar.gz/carbonlib/*` |
-   | spark.driver.extraClassPath | Extra classpath entries to prepend to the classpath of the driver. **NOTE**: If SPARK_CLASSPATH is defined in spark-env.sh, then comment it and append the value in below parameter spark.driver.extraClassPath. |`$SPARK_HOME/carbonlib/carbonlib/*` |
-   | spark.driver.extraJavaOptions | A string of extra JVM options to pass to the driver. For instance, GC settings or other logging. |`-Dcarbon.properties.filepath=$SPARK_HOME/conf/carbon.properties` |
+| Property | Description | Value |
+|---------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| spark.master | Set this value to run the Spark in yarn cluster mode. | Set yarn-client to run the Spark in yarn cluster mode. |
+| spark.yarn.dist.files | Comma-separated list of files to be placed in the working directory of each executor. |`$SPARK_HOME/conf/carbon.properties` |
+| spark.yarn.dist.archives | Comma-separated list of archives to be extracted into the working directory of each executor. |`$SPARK_HOME/carbonlib/carbondata.tar.gz` |
+| spark.executor.extraJavaOptions | A string of extra JVM options to pass to executors. For instance  **NOTE**: You can enter multiple values separated by space. |`-Dcarbon.properties.filepath = carbon.properties` |
+| spark.executor.extraClassPath | Extra classpath entries to prepend to the classpath of executors. **NOTE**: If SPARK_CLASSPATH is defined in spark-env.sh, then comment it and append the values in below parameter spark.driver.extraClassPath |`carbondata.tar.gz/carbonlib/*` |
+| spark.driver.extraClassPath | Extra classpath entries to prepend to the classpath of the driver. **NOTE**: If SPARK_CLASSPATH is defined in spark-env.sh, then comment it and append the value in below parameter spark.driver.extraClassPath. |`$SPARK_HOME/carbonlib/*` |
+| spark.driver.extraJavaOptions | A string of extra JVM options to pass to the driver. For instance, GC settings or other logging. |`-Dcarbon.properties.filepath = $SPARK_HOME/conf/carbon.properties` |
 
 
 5. Add the following properties in `$SPARK_HOME/conf/carbon.properties`:
 
-   | Property | Required | Description | Example | Default Value |
-   |----------------------|----------|----------------------------------------------------------------------------------------|-------------------------------------|---------------|
-   | carbon.storelocation | NO | Location where CarbonData will create the store and write the data in its own format. | hdfs://HOSTNAME:PORT/Opt/CarbonStore | Propose to set HDFS directory|
+| Property | Required | Description | Example | Default Value |
+|----------------------|----------|----------------------------------------------------------------------------------------|-------------------------------------|---------------|
+| carbon.storelocation | NO | Location where CarbonData will create the store and write the data in its own format. | hdfs://HOSTNAME:PORT/Opt/CarbonStore | Propose to set HDFS directory|
 
 6. Verify the installation.
 
-   ```
-     ./bin/spark-shell --master yarn-client --driver-memory 1g
-     --executor-cores 2 --executor-memory 2G
-   ```
+```
+ ./bin/spark-shell --master yarn-client --driver-memory 1g
+ --executor-cores 2 --executor-memory 2G
+```
   **NOTE**: Make sure you have permissions for CarbonData JARs and files through which driver and executor will start.
 
   Getting started with CarbonData : [Quick Start](quick-start-guide.md), [DDL Operations on CarbonData](ddl-operation-on-carbondata.md)
@@ -141,11 +141,12 @@ To get started with CarbonData : [Quick Start](quick-start-guide.md), [DDL Opera
 
    b. Run the following command to start the CarbonData thrift server.
 
-   ```
-   ./bin/spark-submit --conf spark.sql.hive.thriftServer.singleSession=true
-   --class org.apache.carbondata.spark.thriftserver.CarbonThriftServer
-   $SPARK_HOME/carbonlib/$CARBON_ASSEMBLY_JAR <carbon_store_path>
-   ```
+```
+./bin/spark-submit
+--conf spark.sql.hive.thriftServer.singleSession=true
+--class org.apache.carbondata.spark.thriftserver.CarbonThriftServer
+$SPARK_HOME/carbonlib/$CARBON_ASSEMBLY_JAR <carbon_store_path>
+```
 
 | Parameter | Description | Example |
 |---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|
@@ -157,7 +158,8 @@ To get started with CarbonData : [Quick Start](quick-start-guide.md), [DDL Opera
    * Start with default memory and executors.
 
 ```
-./bin/spark-submit --conf spark.sql.hive.thriftServer.singleSession=true 
+./bin/spark-submit
+--conf spark.sql.hive.thriftServer.singleSession=true
 --class org.apache.carbondata.spark.thriftserver.CarbonThriftServer 
 $SPARK_HOME/carbonlib
 /carbondata_2.10-0.1.0-incubating-SNAPSHOT-shade-hadoop2.7.2.jar 
@@ -180,7 +182,7 @@ hdfs://<host_name>:port/user/hive/warehouse/carbon.store
 
 ```
      cd $SPARK_HOME
-     ./bin/beeline jdbc:hive2://<thrftserver_host>:port
+     ./bin/beeline jdbc:hive2://<thriftserver_host>:port
 
      Example
      ./bin/beeline jdbc:hive2://10.10.10.10:10000

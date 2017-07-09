@@ -315,12 +315,12 @@ class CarbonMetastore(conf: RuntimeConfig, val storePath: String) {
       carbonStorePath: String)
     (sparkSession: SparkSession): String = {
     val schemaConverter = new ThriftWrapperSchemaConverterImpl
+    thriftTableInfo.fact_table.schema_evolution.schema_evolution_history.add(schemaEvolutionEntry)
     val wrapperTableInfo = schemaConverter
       .fromExternalToWrapperTableInfo(thriftTableInfo,
-        carbonTableIdentifier.getDatabaseName,
-        carbonTableIdentifier.getTableName,
-        carbonStorePath)
-    thriftTableInfo.fact_table.schema_evolution.schema_evolution_history.add(schemaEvolutionEntry)
+          carbonTableIdentifier.getDatabaseName,
+          carbonTableIdentifier.getTableName,
+          carbonStorePath)
     createSchemaThriftFile(wrapperTableInfo,
       thriftTableInfo,
       carbonTableIdentifier.getDatabaseName,
@@ -710,6 +710,7 @@ object CarbonMetastoreTypes extends RegexParsers {
     "tinyint" ^^^ ShortType |
     "short" ^^^ ShortType |
     "double" ^^^ DoubleType |
+    "bigint" ^^^ LongType |
     "long" ^^^ LongType |
     "binary" ^^^ BinaryType |
     "boolean" ^^^ BooleanType |
@@ -871,8 +872,6 @@ case class CarbonRelation(
       .map(x => AttributeReference(x.getColName, CarbonMetastoreTypes.toDataType(
         metaData.carbonTable.getMeasureByName(factTable, x.getColName).getDataType.toString
           .toLowerCase match {
-          case "int" => "long"
-          case "short" => "long"
           case "decimal" => "decimal(" + x.getPrecision + "," + x.getScale + ")"
           case others => others
         }),
@@ -884,7 +883,7 @@ case class CarbonRelation(
       .asScala
     // convert each column to Attribute
     columns.filter(!_.isInvisible).map { column =>
-      if (column.isDimesion()) {
+      if (column.isDimension()) {
         val output: DataType = column.getDataType.toString.toLowerCase match {
           case "array" =>
             CarbonMetastoreTypes.toDataType(s"array<${getArrayChildren(column.getColName)}>")
